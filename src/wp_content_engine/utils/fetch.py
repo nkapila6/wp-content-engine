@@ -1,0 +1,53 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+# From: https://github.com/nkapila6/mcp-local-rag/blob/main/src/mcp_local_rag/utils/fetch.py
+"""
+Created on 2025-06-04 22:55:29 Wednesday
+
+@author: Nikhil Kapila
+"""
+
+import requests, time
+
+from typing import List, Dict, Optional
+from concurrent.futures import ThreadPoolExecutor
+from bs4 import BeautifulSoup
+
+def fetch_content(url: str, timeout: int = 5) -> Optional[str]:
+    """Fetch content from a URL with timeout."""
+    try:
+        start_time = time.time()
+        response = requests.get(url, timeout=timeout)
+        response.raise_for_status()
+        content = BeautifulSoup(response.text, "html.parser").get_text(separator=" ", strip=True)
+        print(f"Fetched {url} in {time.time() - start_time:.2f}s")
+        return content[:10000]  # limitting content to 10k
+    except requests.RequestException as e:
+        print(f"Error fetching {url}: {type(e).__name__} - {str(e)}")
+        return None
+
+def fetch_all_content(results: List[Dict], include_urls:bool=True) -> List[str]:
+    """Fetch content from all URLs using a thread pool."""
+    urls = [site['href'] for site in results if site.get('href')]
+    
+    # parallelize requests
+    with ThreadPoolExecutor(max_workers=5) as executor:
+        # submit fetch tasks to executor
+        future_to_url = {executor.submit(fetch_content, url): url for url in urls}
+        
+        content_list = []
+        for future, url in future_to_url.items():
+            try:
+                content = future.result()
+                if content:
+                    result = {
+                        "type": "text",
+                        "text": content,
+                    }
+                    if include_urls:
+                        result["url"] = url
+                    content_list.append(result)
+            except Exception as e:
+                print(f"Request failed with exception: {e}")
+        
+    return content_list
