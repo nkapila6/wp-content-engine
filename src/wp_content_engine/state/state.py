@@ -1,29 +1,100 @@
 # Shared agent state definitins in LangGraph
 # 24/02/2026 01:06PM Nikhil Kapila
 
-from typing import Type, TypedDict, Literal
+from __future__ import annotations
+from typing import Type, TypedDict, Literal, Any, Dict, List, Optional
+from typing_extensions import NotRequired
+
 from pydantic import BaseModel, Field
 
-class AgentState(BaseModel):
-    # ddgs result
-    ddgs_result: dict
-    ddgs_result_summary:str
+class SearchResult(TypedDict):
+    url: NotRequired[str]
+    content: str
 
-    # ripgrep queries
-    rg_queries: list
-    rg_results: dict
-    rg_result_summary: str
-
-    # planning agent
-    
-    # stitching agent
-
-    # TODO: persona adaptation aspect to be looked at later
-    
-    # output
+class RipgrepMatch(TypedDict):
+    file_path:str
+    line:int
+    line_text:str
+    context_before:List[str]
+    context_after: List[str]
 
 class Task(BaseModel):
     id: int
-    title: str
+    title:str
+    goal:str=Field(
+        ...,
+        description="One sentence describing what the reader should do or understand."
+    )
+    bullets: List[str]=Field(...,min_length=3, max_length=6)
+    target_words:int = Field(..., description="Target words (120-550)")
 
-    goal:str
+    tags:List[str]=Field(default_factory=list)
+    requires_research:bool=False
+    requires_citations:bool=False
+    requires_code:bool=False
+
+class Plan(BaseModel):
+    blog_title:str
+    audience:str
+    tone:str
+    blog_kind: Literal[
+    "concept_explainer",  # The "What": Defining a single idea/topic.
+    "procedural_guide",   # The "How": Step-by-step instructions or tutorials.
+    "analytical_compare", # The "Versus": Evaluating two or more options.
+    "digest_roundup",     # The "Latest": News, links, or weekly highlights.
+    "structural_deepdive",# The "Architecture": How a complex system/org is built.
+    "narrative_log",      # The "Story": Case studies, project retrospectives, or field trips.
+    "inquiry_response",   # The "Q&A": FAQs, interviews, or mailbags.
+    "resource_curation",  # The "Tools": Lists of books, libraries, or supplies.
+    ] = "concept_explainer"
+    depth:Literal["beginner", "intermediate", "expert"]="intermediate"
+    tone_profile:str
+    constraints:List[str]=Field(default_factory=list)
+    tasks:List[Task]
+
+class AgentState(TypedDict, total=False):
+    # input
+    topic: str
+    raw_prompt:str
+    persona:str
+    example_post:str
+    target_words_total:int
+
+    # ddgs result
+    ddgs_queries: List[str]
+    ddgs_num_results: int
+    ddgs_results: Dict[str, List[SearchResult]]
+    ddgs_result_summary:str # from the generative step
+
+    # ripgrep queries
+    kb_root:str
+    rg_queries: List[str]
+    rg_results: Dict[str, List[RipgrepMatch]]
+    rg_result_summary: str
+
+    # condenser node (web+KB search)
+    condensed_content:str
+
+    # planning agent
+    plan: Plan
+    current_task_id:int
+    completed_task_ids: List[int]
+    task_drafts: Dict[int, str]
+    
+    # stitching agent
+    stitched_draft:str
+
+    # styler node
+    styled_draft:str
+
+    # seo segment
+    primary_keyword:str
+    secondary_keywords:List[str]
+    seo_keywords:List[str]
+    seo_meta_title:str
+    seo_meta_description:str
+    seo_slug:str
+
+    # debug
+    errors:List[str]
+    debug_logs:List[str]
