@@ -100,6 +100,57 @@ def _resolve_category(
     return []
 
 
+def fetch_existing_posts() -> List[Dict[str, str]]:
+    """
+    Paginate through the WP REST API and return every post's title, slug,
+    and excerpt.  Works for both 'publish' and 'draft' statuses so
+    autopilot can avoid duplicating content in either state.
+
+    Returns an empty list when WP credentials are not configured.
+    """
+    wp_url = os.getenv("WP_URL", "").rstrip("/")
+    wp_user = os.getenv("WP_USER", "")
+    wp_password = os.getenv("WP_APP_PASSWORD", "")
+
+    if not wp_url or not wp_user or not wp_password:
+        return []
+
+    auth = (wp_user, wp_password)
+    endpoint = f"{wp_url}/wp-json/wp/v2/posts"
+    posts: List[Dict[str, str]] = []
+    page = 1
+
+    while True:
+        resp = requests.get(
+            endpoint,
+            params={
+                "per_page": 100,
+                "page": page,
+                "status": "publish,draft",
+                "_fields": "id,title,slug,excerpt",
+            },
+            auth=auth,
+            timeout=15,
+        )
+        if not resp.ok or not resp.json():
+            break
+
+        for item in resp.json():
+            posts.append({
+                "id": item["id"],
+                "title": item.get("title", {}).get("rendered", ""),
+                "slug": item.get("slug", ""),
+                "excerpt": item.get("excerpt", {}).get("rendered", ""),
+            })
+
+        total_pages = int(resp.headers.get("X-WP-TotalPages", 1))
+        if page >= total_pages:
+            break
+        page += 1
+
+    return posts
+
+
 def wp_push_node(state: AgentState, *_args, **_kwargs) -> Dict[str, object]:
     """
     Node: push the final article to WordPress via REST API.
