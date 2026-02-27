@@ -59,6 +59,9 @@ class AgentState(TypedDict, total=False):
     persona:str
     example_post:str
     target_words_total:int
+    blog_kind_hint:str
+    brand_name:str
+    brand_context:str
 
     # ddgs result
     ddgs_queries: List[str]
@@ -94,6 +97,16 @@ class AgentState(TypedDict, total=False):
     seo_meta_title:str
     seo_meta_description:str
     seo_slug:str
+
+    # wp output
+    wp_title:str
+    wp_subtitle:str
+    wp_body:str
+    wp_excerpt:str
+    wp_tags:List[str]
+    wp_categories:List[str]
+    wp_post_id:int
+    wp_post_url:str
 
     # debug
     errors:List[str]
