@@ -114,7 +114,7 @@ def suggestion_to_initial_state(
     return {
         "topic": suggestion.get("topic", ""),
         "raw_prompt": raw_prompt,
-        "persona": suggestion.get("persona", "informative blogger"),
+        "persona": suggestion.get("persona", "A thoughtful writer who shares personal insights and speaks directly to the reader"),
         "example_post": "",
         "target_words_total": suggestion.get("target_words", 1500),
         "blog_kind_hint": suggestion.get("blog_kind_hint", ""),

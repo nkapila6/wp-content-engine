@@ -238,7 +238,7 @@ def get_user_input() -> AgentState:
 
     persona = (
         input("\n Persona (e.g., 'Technical educator', 'Python developer'): ").strip()
-        or "Professional blog writer"
+        or "A thoughtful writer who shares personal insights and speaks directly to the reader"
     )
 
     example = input("\n Example post (paste or press Enter to skip): ").strip()

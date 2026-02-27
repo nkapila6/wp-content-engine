@@ -359,9 +359,6 @@ def styler_node(
     if not stitched_draft:
         return {}
 
-    if not example_post:
-        return {"styled_draft": stitched_draft}
-
     tone_profile = plan.tone_profile if plan else ""
 
     try:

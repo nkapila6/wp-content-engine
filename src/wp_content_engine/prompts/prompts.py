@@ -154,7 +154,7 @@ def condenser_prompt(
     Returns:
         Tuple of (SystemMessage, HumanMessage)
     """
-    persona_str = persona if persona else "Professional blog writer"
+    persona_str = persona if persona else "A thoughtful writer who shares personal insights and speaks directly to the reader"
     example_str = example_post[:500] if example_post else "Not provided"
 
     keywords_str = ""
@@ -167,17 +167,20 @@ def condenser_prompt(
 
     system_msg = SystemMessage(
         content=(
-            "You are preparing a context document for AI writers planning and drafting a blog post.\n"
-            "Your task is to condense research summaries into a single, budgeted context string.\n"
-            f"This context will be used by multiple AI writers. Stay within {token_limit} tokens.\n\n"
+            "You are preparing a context brief for writers planning and drafting a blog post.\n"
+            "Condense research summaries into a single, budgeted context string.\n"
+            f"This context will guide multiple writers. Stay within {token_limit} tokens.\n\n"
             "Include:\n"
-            "- Core facts and information about the topic\n"
-            "- Key insights from web research and knowledge base\n"
+            "- Core facts and insights about the topic\n"
+            "- Interesting angles, surprising findings, or strong opinions from sources\n"
+            "- Concrete stories, examples, or data points that a writer could reference\n"
             "- Target audience considerations from persona\n"
             "- SEO keywords to naturally incorporate\n"
-            "- Tone/style cues from example post\n\n"
-            "Organize logically: background → key points → audience → tone → SEO notes.\n"
-            "Be comprehensive but efficient. Every word must earn its place."
+            "- VOICE NOTES: a short paragraph reminding writers of the desired voice/persona\n"
+            "  and any tone cues from the example post. Writers should sound like a real person,\n"
+            "  not an information dispenser.\n\n"
+            "Organize: background → interesting angles → concrete details → audience → voice notes → SEO.\n"
+            "Prioritize material that gives writers something vivid to say, not just facts to recite."
         )
     )
 
@@ -207,15 +210,18 @@ Knowledge Base Summary:
 {rg_summary}
 
 Task:
-Create a condensed context document (max {token_limit} tokens) that:
+Create a condensed context brief (max {token_limit} tokens) that:
 1. Synthesizes the most important information from both summaries
-2. Provides enough context for writers to understand the topic deeply
-3. Highlights audience needs and expectations from persona
-4. Notes SEO keywords to incorporate naturally
-5. Captures the voice/style from the example post
-6. {"Weaves in brand-specific details about " + brand_name + " where relevant — this content is FOR this brand" if brand_name else "No specific brand context"}
+2. Highlights the most interesting, surprising, or opinion-worthy angles
+3. Includes 2-3 concrete details (stats, stories, examples) writers can weave in
+4. Notes audience needs and expectations from persona
+5. Includes a VOICE NOTES section reminding writers to use a personal, human tone
+   (first-person or warm third-person — not encyclopedic)
+6. Notes SEO keywords to incorporate naturally
+7. {"Weaves in brand-specific details about " + brand_name + " where relevant — this content is FOR this brand" if brand_name else "No specific brand context"}
 
-Organize into clear sections. Be concise but thorough. This context will guide both planning and writing."""
+Organize into clear sections. Prioritize material that helps writers sound like real people
+sharing what they know, not textbooks summarizing information."""
     )
 
     return system_msg, user_msg
@@ -251,7 +257,7 @@ def planner_prompt(
     Returns:
         Tuple of (SystemMessage, HumanMessage)
     """
-    persona_str = persona if persona else "Professional blog writer"
+    persona_str = persona if persona else "A thoughtful writer who shares personal insights and speaks directly to the reader"
     example_str = example_post[:400] if example_post else "Not provided"
 
     keywords_str = ""
@@ -265,15 +271,23 @@ def planner_prompt(
     system_msg = SystemMessage(
         content=(
             "You are a blog post architect creating a detailed writing plan.\n"
-            "You will output a structured Plan that guides AI writers through drafting each section.\n\n"
+            "You will output a structured Plan that guides writers through drafting each section.\n\n"
+            "IMPORTANT — VOICE DIRECTION:\n"
+            "The final article must read like a person sharing their thoughts and experiences,\n"
+            "NOT like an informational note or textbook entry. Default to a warm, first-person or\n"
+            "relatable third-person narrative unless the persona explicitly demands otherwise.\n"
+            "Your tone_profile should describe a specific human voice (e.g., 'a curious educator\n"
+            "who mixes research with personal classroom stories') — never just 'professional' or 'formal'.\n\n"
             "The Plan must include:\n"
-            "- blog_title: Compelling, SEO-friendly title\n"
+            "- blog_title: Compelling, SEO-friendly title (avoid generic 'Ultimate Guide' patterns)\n"
             "- audience: Who this post is for (be specific)\n"
-            "- tone: Overall tone (e.g., 'conversational', 'technical', 'inspiring')\n"
+            "- tone: Overall tone (e.g., 'conversational', 'reflective', 'witty-but-informed')\n"
             "- blog_kind: Type of post from: concept_explainer, procedural_guide, analytical_compare, "
             "digest_roundup, structural_deepdive, narrative_log, inquiry_response, resource_curation\n"
             "- depth: beginner, intermediate, or expert\n"
-            "- tone_profile: Detailed description of the desired voice/style\n"
+            "- tone_profile: A RICH description of the desired voice — describe the writer as a character.\n"
+            "  Include: their perspective, how they open paragraphs, whether they use 'I' or 'we',\n"
+            "  how they handle complexity (analogies? stories? humour?), and what they would NEVER do.\n"
             "- constraints: Any limitations or requirements (e.g., avoid jargon, include examples)\n"
             "- tasks: List of 3-7 tasks, each with:\n"
             "  * id: Sequential integer (1, 2, 3...)\n"
@@ -371,17 +385,23 @@ def draft_task_prompt(
 
     system_msg = SystemMessage(
         content=(
-            "You are a blog post section writer. You will write ONE section of a larger article.\n"
-            "Your section must:\n"
-            "- Fully address the task goal\n"
-            "- Cover all bullet points naturally\n"
+            "You are a skilled writer crafting ONE section of a longer blog post.\n"
+            "Write like a real person sharing their perspective — not like a textbook or encyclopedia.\n\n"
+            "VOICE RULES:\n"
+            "- Use first-person ('I', 'we', 'my') or a warm, relatable third-person voice\n"
+            "- Share opinions, reflections, or light anecdotes — don't just state facts\n"
+            "- Vary sentence length: mix short punchy lines with longer flowing ones\n"
+            "- Use conversational connectors ('honestly', 'here's the thing', 'what surprised me')\n"
+            "- Pose occasional rhetorical questions to pull the reader in\n"
+            "- Prefer concrete, vivid language over abstract generalities\n"
+            "- Avoid listicle-style bullet dumps — weave points into flowing paragraphs\n\n"
+            "CONTENT RULES:\n"
+            "- Fully address the task goal and cover all bullet points\n"
             "- Stay within target word count\n"
             "- Match the overall tone and audience\n"
-            "- Integrate research context where relevant\n"
-            "- Incorporate SEO keywords naturally (don't force it)\n\n"
-            "Write in a way that flows well with other sections (you don't write the transitions).\n"
-            "Use examples, data, or quotes from research to support points.\n"
-            "Be specific and actionable. Avoid fluff."
+            "- Integrate research context where relevant (cite specifics, not vague nods)\n"
+            "- Incorporate SEO keywords naturally — never force them\n\n"
+            "Think of this as writing a section of a magazine column, not an essay assignment."
         )
     )
 
@@ -416,7 +436,8 @@ SEO Keywords:
 
 Task:
 Write this section ({task.target_words} words) covering all the bullets above.
-Make it engaging, informative, and aligned with the overall article goals.
+Write it like you're explaining this to a friend over coffee — knowledgeable but never stuffy.
+Bring in your own perspective or a relatable scenario where it fits.
 If citations are required, use [Source X] notation referencing the research context.
 If code examples are needed, include clear, well-commented code."""
     )
@@ -527,7 +548,7 @@ def stitcher_prompt(
     Returns:
         Tuple of (SystemMessage, HumanMessage)
     """
-    persona_str = persona if persona else "Professional blog writer"
+    persona_str = persona if persona else "A thoughtful writer who shares personal insights and speaks directly to the reader"
     example_str = example_post[:300] if example_post else "Not provided"
 
     drafts_str = ""
@@ -540,16 +561,18 @@ def stitcher_prompt(
 
     system_msg = SystemMessage(
         content=(
-            "You are assembling a complete blog post from individually written sections.\n"
-            "Your job is to:\n"
-            "- Combine all sections into one coherent article\n"
-            "- Write smooth transitions between sections\n"
-            "- Ensure the article flows logically from start to finish\n"
-            "- Add an engaging introduction that hooks the reader\n"
-            "- Write a compelling conclusion that reinforces key points\n"
-            "- Match the persona and style from the example\n"
+            "You are weaving individually written sections into one seamless blog post.\n"
+            "The sections were drafted in a personal, conversational voice — your job is to\n"
+            "PRESERVE that voice while connecting the pieces.\n\n"
+            "Your priorities:\n"
+            "- Write transitions that feel like natural shifts in a conversation, not academic segues\n"
+            "- Add an introduction that hooks with a story, question, or bold statement — not a summary\n"
+            "- Write a conclusion that lands with a personal reflection or memorable thought\n"
+            "- Keep the first-person or warm third-person voice consistent throughout\n"
+            "- If a section sounds too formal or robotic, soften it during integration\n"
             "- Target the total word count closely\n\n"
-            "Don't rewrite the sections themselves. Focus on integration and flow."
+            "Do NOT flatten personality into generic prose. The article should read like one person\n"
+            "wrote it in a single sitting, sharing what they genuinely think and know."
         )
     )
 
@@ -570,21 +593,22 @@ INDIVIDUAL SECTIONS:
 {drafts_str}
 
 Task:
-Assemble this into a complete blog post:
+Weave this into a complete blog post that reads like one person wrote it:
 
-1. Write an engaging introduction (100-200 words) that:
-   - Hooks the reader immediately
-   - States what they'll learn
-   - Sets the right tone
+1. Write an introduction (100-200 words) that:
+   - Opens with a hook: a short story, a surprising fact, a question, or a bold opinion
+   - Avoids the pattern 'In this article, we will explore...' — that's a dead giveaway
+   - Sets a personal, conversational tone from the first sentence
 
-2. Combine all sections in order, adding smooth transitions
+2. Combine all sections in order, adding transitions that feel like natural thought progression
+   (e.g. 'Which brings me to something I keep coming back to...' not 'Moving on to the next topic...')
 
-3. Write a compelling conclusion (100-150 words) that:
-   - Summarizes key takeaways
-   - Leaves the reader satisfied with a strong closing thought
+3. Write a conclusion (100-150 words) that:
+   - Offers a personal reflection, a forward-looking thought, or a memorable takeaway
+   - Feels like the writer wrapping up a conversation, not filing a report
    - Do NOT add a generic call-to-action like "contact us", "reach out", "ready to explore", etc.
 
-4. Review the full article and ensure it flows perfectly
+4. Read the full article back — does it sound like a person talking? If any part sounds robotic, fix it.
 
 Return the complete article with introduction, sections with transitions, and conclusion."""
     )
@@ -614,8 +638,8 @@ def styler_prompt(
     Returns:
         Tuple of (SystemMessage, HumanMessage)
     """
-    persona_str = persona if persona else "Professional blog writer"
-    tone_str = tone_profile if tone_profile else "Professional yet engaging"
+    persona_str = persona if persona else "A thoughtful writer who shares personal insights and speaks directly to the reader"
+    tone_str = tone_profile if tone_profile else "Warm, conversational, and opinionated — like a knowledgeable friend sharing what they've learned"
 
     keywords_str = ""
     if primary_keyword:
@@ -625,54 +649,66 @@ def styler_prompt(
 
     system_msg = SystemMessage(
         content=(
-            "You are a style editor finalizing a blog post's voice and tone.\n"
-            "Your task is to:\n"
-            "- Match the exact voice and style from the example post\n"
-            "- Apply the tone_profile precisely\n"
-            "- Ensure SEO keywords appear naturally (don't overdo it)\n"
-            "- Polish sentences for flow and readability\n"
-            "- Fix any awkward phrasing or inconsistencies\n"
-            "- Maintain the core content and structure\n\n"
-            "The goal is to make it sound like it was written by the persona, not a machine.\n"
-            "IMPORTANT: Do NOT append a keyword list, keyword block, or any meta-information at the end of the article. "
-            "The article body must end naturally with the conclusion paragraph."
+            "You are a voice editor doing the final pass on a blog post.\n"
+            "Your single obsession: make this sound like a HUMAN wrote it.\n\n"
+            "HUMANIZATION CHECKLIST (apply every time):\n"
+            "- Replace any 'In today's world...', 'It is important to note...',\n"
+            "  'This article explores...' phrasing with natural alternatives\n"
+            "- Ensure the article uses 'I', 'we', 'you' — a real person is talking\n"
+            "- Break up any paragraph longer than 4-5 sentences\n"
+            "- Add at least 2-3 rhetorical questions across the article\n"
+            "- Vary rhythm: follow a long sentence with a short punchy one\n"
+            "- Replace generic adjectives ('important', 'significant', 'various')\n"
+            "  with specific, vivid ones\n"
+            "- If there's an example post, match its voice and quirks closely\n"
+            "- If there's no example post, default to a warm, opinionated column-style voice\n"
+            "- Apply the tone_profile from the plan as your north star\n"
+            "- Incorporate SEO keywords naturally — never force them\n\n"
+            "PRESERVE the core content and structure. Your job is voice, not rewriting.\n\n"
+            "IMPORTANT: Do NOT append a keyword list, keyword block, or any meta-information\n"
+            "at the end. The article must end naturally with the conclusion."
         )
     )
 
+    example_section = ""
+    if example_post:
+        example_section = (
+            f"REFERENCE VOICE (match this style closely):\n{example_post}\n\n"
+            "Analyze this example's sentence structure, word choice, use of 'I'/'we',\n"
+            "humour, metaphors, paragraph length, and opening/closing patterns.\n"
+            "Then apply those exact patterns to the draft below.\n\n"
+        )
+    else:
+        example_section = (
+            "NO EXAMPLE POST PROVIDED.\n"
+            "Default to a warm, opinionated voice — like a knowledgeable friend writing a column.\n"
+            "Use first person naturally. Share brief reflections or reactions to the material.\n"
+            "Imagine someone who genuinely cares about the topic writing on their personal blog.\n\n"
+        )
+
     user_msg = HumanMessage(
-        content=f"""TARGET STYLE:
+        content=f"""TARGET VOICE:
 Persona: {persona_str}
 
 Tone Profile:
 {tone_str}
 
-Example Post (analyze this style):
-{example_post}
-
-CURRENT DRAFT:
+{example_section}CURRENT DRAFT:
 {stitched_draft}
 
 SEO Keywords:
 {keywords_str if keywords_str else "None specified"}
 
 Task:
-Rewrite this draft to perfectly match the persona and example style:
+Polish this draft so it sounds unmistakably human:
 
-1. Analyze the example post's:
-   - Sentence structure (short/long/mixed)
-   - Word choice (formal/casual/technical)
-   - Voice (first/third person, active/passive)
-   - Use of humor, metaphors, analogies
-   - Paragraph structure
-   - Opening/closing patterns
+1. Read the draft aloud in your head — flag anything that sounds like 'AI wrote this'
+2. Replace stiff transitions, generic openers, and passive constructions
+3. Ensure the persona's voice is consistent from first paragraph to last
+4. Incorporate SEO keywords where they fit naturally
+5. Keep paragraph lengths varied and readable
 
-2. Apply those exact patterns to the draft
-
-3. Incorporate SEO keywords naturally where they fit
-
-4. Polish for flow and readability
-
-IMPORTANT: Do NOT append a keyword list, keyword block, or any meta-information at the end of the article.
+IMPORTANT: Do NOT append a keyword list, keyword block, or any meta-information at the end.
 Do NOT add a generic call-to-action like "contact us", "reach out", "ready to explore", "get in touch", etc.
 
 Return the fully styled article."""

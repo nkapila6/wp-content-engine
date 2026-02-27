@@ -117,7 +117,7 @@ def row_to_initial_state(row: dict, brand_name: str, brand_context: str, kb_root
     return {
         "topic": row.get("topic", ""),
         "raw_prompt": row.get("prompt", ""),
-        "persona": row.get("persona", "Professional blog writer"),
+        "persona": row.get("persona", "A thoughtful writer who shares personal insights and speaks directly to the reader"),
         "example_post": row.get("example_post", ""),
         "target_words_total": target_words,
         "blog_kind_hint": row.get("blog_kind", ""),
