@@ -2,6 +2,10 @@
 # 25/02/2026 01:34PM Nikhil Kapila
 
 from langchain_openrouter import ChatOpenRouter 
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
 
 # example from documentation
 # https://docs.langchain.com/oss/python/integrations/chat/openrouter
@@ -14,5 +18,6 @@ from langchain_openrouter import ChatOpenRouter
 # )
 
 llm = ChatOpenRouter(
-    model=""
+    model=os.getenv("OPENROUTER_MODEL"),
+    api_key=os.getenv("OPENROUTER_API_KEY")
 )
