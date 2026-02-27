@@ -7,7 +7,7 @@ from typing import List
 
 from langchain_core.messages import SystemMessage, HumanMessage
 
-from wp_content_engine.state.state import Plan, TopicSuggestion
+from wp_content_engine.state.state import Plan, Source, TopicSuggestion
 
 
 def ddgs_summary_prompt(
@@ -136,6 +136,7 @@ def condenser_prompt(
     token_limit: int,
     brand_name: str = "",
     brand_context: str = "",
+    source_registry: list[Source] | None = None,
 ) -> tuple[SystemMessage, HumanMessage]:
     """
     Generate prompt for condensing summaries into budgeted context.
@@ -191,6 +192,12 @@ def condenser_prompt(
         preview = brand_context[:2000]
         brand_str += f"\nBrand / Company Context (from knowledge base):\n{preview}\n"
 
+    sources_str = ""
+    if source_registry:
+        sources_str = "\nAvailable Web Sources (use these for inline citations):\n"
+        for src in source_registry:
+            sources_str += f"  [{src['id']}] {src['title']} — {src['url']}\n"
+
     user_msg = HumanMessage(
         content=f"""Topic: {topic}
 {brand_str}
@@ -208,7 +215,7 @@ Web Research Summary:
 
 Knowledge Base Summary:
 {rg_summary}
-
+{sources_str}
 Task:
 Create a condensed context brief (max {token_limit} tokens) that:
 1. Synthesizes the most important information from both summaries
@@ -219,6 +226,8 @@ Create a condensed context brief (max {token_limit} tokens) that:
    (first-person or warm third-person — not encyclopedic)
 6. Notes SEO keywords to incorporate naturally
 7. {"Weaves in brand-specific details about " + brand_name + " where relevant — this content is FOR this brand" if brand_name else "No specific brand context"}
+8. Includes a SOURCE NOTES section listing the numbered sources above so writers can
+   cite them with inline markdown links like [descriptive text](url)
 
 Organize into clear sections. Prioritize material that helps writers sound like real people
 sharing what they know, not textbooks summarizing information."""
@@ -357,6 +366,7 @@ def draft_task_prompt(
     rg_results: dict,
     primary_keyword: str,
     secondary_keywords: list[str],
+    source_registry: list[Source] | None = None,
 ) -> tuple[SystemMessage, HumanMessage]:
     """
     Generate prompt for drafting a single task/section.
@@ -369,6 +379,7 @@ def draft_task_prompt(
         rg_results: KB search results
         primary_keyword: Primary SEO keyword
         secondary_keywords: List of secondary keywords
+        source_registry: Numbered list of web sources for inline citation
 
     Returns:
         Tuple of (SystemMessage, HumanMessage)
@@ -382,6 +393,17 @@ def draft_task_prompt(
         keywords_str += f"Primary: {primary_keyword}\n"
     if secondary_keywords:
         keywords_str += f"Secondary: {', '.join(secondary_keywords)}\n"
+
+    citation_rules = (
+        "CITATION RULES:\n"
+        "- When referencing a fact, statistic, or claim from research, cite it with an\n"
+        "  inline markdown hyperlink: [descriptive anchor text](url)\n"
+        "- Use natural anchor text that fits the sentence flow, e.g.\n"
+        "  'a recent [study on school outcomes](https://example.com/study) found that...'\n"
+        "- Do NOT dump bare URLs or use generic anchors like 'click here' or 'source'\n"
+        "- Aim for 2-5 citations per section where research backs the claims\n"
+        "- Only cite URLs from the Available Sources list below\n"
+    )
 
     system_msg = SystemMessage(
         content=(
@@ -401,9 +423,16 @@ def draft_task_prompt(
             "- Match the overall tone and audience\n"
             "- Integrate research context where relevant (cite specifics, not vague nods)\n"
             "- Incorporate SEO keywords naturally — never force them\n\n"
+            f"{citation_rules}\n"
             "Think of this as writing a section of a magazine column, not an essay assignment."
         )
     )
+
+    sources_str = ""
+    if source_registry:
+        sources_str = "\nAvailable Sources (cite using inline markdown links):\n"
+        for src in source_registry:
+            sources_str += f"  [{src['id']}] {src['title']} — {src['url']}\n"
 
     user_msg = HumanMessage(
         content=f"""Blog Title: {plan.blog_title}
@@ -433,12 +462,13 @@ Context for this article:
 
 SEO Keywords:
 {keywords_str if keywords_str else "None specified"}
-
+{sources_str}
 Task:
 Write this section ({task.target_words} words) covering all the bullets above.
 Write it like you're explaining this to a friend over coffee — knowledgeable but never stuffy.
 Bring in your own perspective or a relatable scenario where it fits.
-If citations are required, use [Source X] notation referencing the research context.
+Where claims draw on the research context, cite them with inline markdown links
+like [descriptive text](url) using URLs from the Available Sources list.
 If code examples are needed, include clear, well-commented code."""
     )
 
@@ -451,6 +481,7 @@ def task_revision_prompt(
     current_task_id: int,
     ddgs_results: dict,
     rg_results: dict,
+    source_registry: list[Source] | None = None,
 ) -> tuple[SystemMessage, HumanMessage]:
     """
     Generate prompt for fact-checking and revising a task draft.
@@ -461,6 +492,7 @@ def task_revision_prompt(
         current_task_id: ID of task being revised
         ddgs_results: Web search results
         rg_results: KB search results
+        source_registry: Numbered list of web sources for inline citation
 
     Returns:
         Tuple of (SystemMessage, HumanMessage)
@@ -470,35 +502,23 @@ def task_revision_prompt(
         raise ValueError(f"Task {current_task_id} not found in plan")
 
     sources_str = ""
-
-    web_sources = []
-    for query, results in ddgs_results.items():
-        for i, result in enumerate(results[:3], 1):
-            url = result.get("url", "")
-            content = result.get("content", "")[:300]
-            web_sources.append(f"Web [{len(web_sources) + 1}]: {url}\n{content}...")
-
-    kb_sources = []
-    for query, matches in rg_results.items():
-        for i, match in enumerate(matches[:3], 1):
-            file = match.get("file_path", "")
-            text = match.get("line_text", "")[:200]
-            kb_sources.append(f'KB [{len(kb_sources) + 1}]: {file}\n"{text}"')
-
-    if web_sources:
-        sources_str += "\n=== Web Sources ===\n" + "\n\n".join(web_sources)
-    if kb_sources:
-        sources_str += "\n\n=== Knowledge Base Sources ===\n" + "\n\n".join(kb_sources)
+    if source_registry:
+        sources_str = "\n=== Available Web Sources ===\n"
+        for src in source_registry:
+            sources_str += f"  [{src['id']}] {src['title']} — {src['url']}\n"
 
     system_msg = SystemMessage(
         content=(
             "You are a fact-checker and editor reviewing a blog post section.\n"
             "Your role is to:\n"
             "- Verify key factual claims against the provided sources\n"
-            "- Add citations where appropriate using [Source X] notation\n"
+            "- Ensure factual claims are cited with inline markdown hyperlinks:\n"
+            "  [descriptive anchor text](url) using URLs from the source list\n"
+            "- Add missing citations where research backs a claim\n"
             "- Fix any obvious errors or inconsistencies\n"
             "- Improve clarity and flow without changing the overall message\n"
-            "- Ensure the draft stays within the target word count\n\n"
+            "- Ensure the draft stays within the target word count\n"
+            "- Preserve any existing inline markdown links that are correct\n\n"
             "Don't rewrite the entire section unless necessary. Focus on accuracy and quality."
         )
     )
@@ -511,18 +531,18 @@ Target Words: {task.target_words}
 CURRENT DRAFT:
 {task_draft}
 
-AVAILABLE SOURCES:
 {sources_str}
 
 Task:
 Review and improve this draft:
 1. Verify key facts against sources
-2. Add citations where facts are sourced
-3. Fix any errors or inconsistencies
-4. Improve clarity
-5. Stay close to target word count ({task.target_words})
+2. Ensure claims backed by research use inline markdown links: [anchor text](url)
+3. Add missing citations where a source supports a claim
+4. Fix any errors or inconsistencies
+5. Improve clarity
+6. Stay close to target word count ({task.target_words})
 
-Return the improved draft."""
+Return the improved draft with inline citation links."""
     )
 
     return system_msg, user_msg
@@ -570,7 +590,9 @@ def stitcher_prompt(
             "- Write a conclusion that lands with a personal reflection or memorable thought\n"
             "- Keep the first-person or warm third-person voice consistent throughout\n"
             "- If a section sounds too formal or robotic, soften it during integration\n"
-            "- Target the total word count closely\n\n"
+            "- Target the total word count closely\n"
+            "- PRESERVE all inline markdown hyperlinks [text](url) exactly as they appear —\n"
+            "  these are citation links and must not be removed, reworded, or broken\n\n"
             "Do NOT flatten personality into generic prose. The article should read like one person\n"
             "wrote it in a single sitting, sharing what they genuinely think and know."
         )
@@ -664,7 +686,9 @@ def styler_prompt(
             "- If there's no example post, default to a warm, opinionated column-style voice\n"
             "- Apply the tone_profile from the plan as your north star\n"
             "- Incorporate SEO keywords naturally — never force them\n\n"
-            "PRESERVE the core content and structure. Your job is voice, not rewriting.\n\n"
+            "PRESERVE the core content and structure. Your job is voice, not rewriting.\n"
+            "PRESERVE all inline markdown hyperlinks [text](url) — these are citation links.\n"
+            "You may adjust the anchor text for voice, but keep the URL and link intact.\n\n"
             "IMPORTANT: Do NOT append a keyword list, keyword block, or any meta-information\n"
             "at the end. The article must end naturally with the conclusion."
         )

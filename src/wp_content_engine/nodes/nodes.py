@@ -54,6 +54,7 @@ def condenser_node(
 
     brand_name = state.get("brand_name", "")
     brand_context = state.get("brand_context", "")
+    source_registry = state.get("source_registry", [])
     token_limit = int(os.getenv("CONDENSER_TOKEN_LIMIT", "3000"))
 
     if not topic or (not ddgs_summary and not rg_summary):
@@ -72,6 +73,7 @@ def condenser_node(
             token_limit=token_limit,
             brand_name=brand_name,
             brand_context=brand_context,
+            source_registry=source_registry,
         )
         response = llm.invoke([system_msg, user_msg], config=config)
         condensed = response.content.strip()
@@ -179,6 +181,7 @@ def draft_task_node(
     rg_results = state.get("rg_results", {})
     primary_keyword = state.get("primary_keyword", "")
     secondary_keywords = state.get("secondary_keywords", [])
+    source_registry = state.get("source_registry", [])
 
     if not plan or current_task_id is None:
         return {}
@@ -200,6 +203,7 @@ def draft_task_node(
             rg_results=rg_results,
             primary_keyword=primary_keyword,
             secondary_keywords=secondary_keywords,
+            source_registry=source_registry,
         )
         response = llm.invoke([system_msg, user_msg], config=config)
         draft = response.content.strip()
@@ -232,6 +236,7 @@ def task_revision_node(
     current_task_id = state.get("current_task_id")
     ddgs_results = state.get("ddgs_results", {})
     rg_results = state.get("rg_results", {})
+    source_registry = state.get("source_registry", [])
 
     if not plan or current_task_id is None:
         return {}
@@ -247,6 +252,7 @@ def task_revision_node(
             current_task_id=current_task_id,
             ddgs_results=ddgs_results,
             rg_results=rg_results,
+            source_registry=source_registry,
         )
         response = llm.invoke([system_msg, user_msg], config=config)
         revised_draft = response.content.strip()

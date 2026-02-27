@@ -7,8 +7,14 @@ from typing_extensions import NotRequired
 
 from pydantic import BaseModel, Field
 
+class Source(TypedDict):
+    id: int
+    url: str
+    title: str
+
 class SearchResult(TypedDict):
     url: NotRequired[str]
+    title: NotRequired[str]
     content: str
 
 class RipgrepMatch(TypedDict):
@@ -81,6 +87,7 @@ class AgentState(TypedDict, total=False):
     ddgs_num_results: int
     ddgs_results: Dict[str, List[SearchResult]]
     ddgs_result_summary:str # from the generative step
+    source_registry: List[Source]
 
     # ripgrep queries
     kb_root:str
