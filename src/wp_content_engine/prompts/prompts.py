@@ -7,7 +7,7 @@ from typing import List
 
 from langchain_core.messages import SystemMessage, HumanMessage
 
-from wp_content_engine.state.state import Plan
+from wp_content_engine.state.state import Plan, TopicSuggestion
 
 
 def ddgs_summary_prompt(
@@ -737,3 +737,67 @@ Generate comprehensive SEO metadata for this article:
 7. Create an SEO-friendly URL slug"""
 
     return user_msg
+
+
+def autopilot_topic_prompt(
+    brand_name: str,
+    brand_context: str,
+    existing_posts: List[dict],
+    batch_size: int = 5,
+) -> tuple[SystemMessage, HumanMessage]:
+    """
+    Prompt the LLM to generate new, non-duplicate blog topic suggestions
+    by analysing the existing WordPress catalog and brand context.
+    """
+    catalog_str = ""
+    if existing_posts:
+        for i, post in enumerate(existing_posts, 1):
+            title = post.get("title", "Untitled")
+            excerpt = post.get("excerpt", "")[:200].strip()
+            catalog_str += f"  {i}. {title}\n"
+            if excerpt:
+                catalog_str += f"     {excerpt}\n"
+    else:
+        catalog_str = "  (no posts yet)\n"
+
+    blog_kinds = (
+        "concept_explainer, procedural_guide, analytical_compare, "
+        "digest_roundup, structural_deepdive, narrative_log, "
+        "inquiry_response, resource_curation"
+    )
+
+    system_msg = SystemMessage(
+        content=(
+            f"You are a content strategist for {brand_name or 'a brand'}.\n"
+            "Your job is to analyse the existing blog catalog, identify content "
+            "gaps, and propose fresh topics that complement — never duplicate — "
+            "what has already been published.\n\n"
+            "Each suggestion must include a detailed writing prompt a writer "
+            "could execute without further briefing.\n"
+            "Vary the blog_kind_hint across suggestions to keep the blog diverse.\n"
+            f"Valid blog_kind values: {blog_kinds}"
+        )
+    )
+
+    brand_section = ""
+    if brand_context:
+        preview = brand_context[:3000]
+        brand_section = f"\nBrand / Company Context:\n{preview}\n"
+
+    user_msg = HumanMessage(
+        content=f"""Brand: {brand_name or '(not specified)'}
+{brand_section}
+Existing Blog Catalog:
+{catalog_str}
+Task:
+Suggest exactly {batch_size} new blog topics that:
+1. Do NOT duplicate or substantially overlap any existing post above
+2. Fill gaps in the catalog's coverage
+3. Are relevant to the brand's audience and domain
+4. Span a variety of blog_kind types
+5. Each include a self-contained writing prompt (2-4 sentences)
+
+Return ONLY a JSON object matching the TopicSuggestions schema."""
+    )
+
+    return system_msg, user_msg

@@ -52,6 +52,19 @@ class Plan(BaseModel):
     constraints:List[str]=Field(default_factory=list)
     tasks:List[Task]
 
+class TopicSuggestion(BaseModel):
+    topic: str
+    prompt: str = Field(..., description="A detailed writing prompt for the article")
+    persona: str = Field(default="informative blogger")
+    primary_keyword: str = Field(default="")
+    target_words: int = Field(default=1500)
+    blog_kind_hint: str = Field(default="concept_explainer")
+    rationale: str = Field(..., description="Why this topic fills a gap in existing content")
+
+class TopicSuggestions(BaseModel):
+    suggestions: List[TopicSuggestion]
+
+
 class AgentState(TypedDict, total=False):
     # input
     topic: str
