@@ -205,7 +205,7 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
-/src/wp_content_engine/.DS_Store
-/src/.DS_Store
-/.DS_Store
 /test
+
+knowledge_base/*.md
+*.DS_Store
